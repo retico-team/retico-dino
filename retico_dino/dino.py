@@ -17,12 +17,12 @@ import retico_core
 # TODO make is so that you don't need these 3 lines below
 # idealy retico-vision would be in the env so you could 
 # import it by just using:
-# from retico_vision.vision import ImageIU, DetectedObjectsIU
+# from retico_vision.vision import ImageIU, ExtractedObjectsIU
 import sys
-prefix = '../../'
-sys.path.append(prefix+'retico-vision')
+# prefix = '../../'
+# sys.path.append(prefix+'retico-vision')
 
-from retico_vision.vision import DetectedObjectsIU, ObjectFeaturesIU
+from retico_vision.vision import ExtractedObjectsIU, ObjectFeaturesIU
 
 class Dinov2ObjectFeatures(retico_core.AbstractModule):
     @staticmethod
@@ -35,7 +35,7 @@ class Dinov2ObjectFeatures(retico_core.AbstractModule):
 
     @staticmethod
     def input_ius():
-        return [DetectedObjectsIU]
+        return [ExtractedObjectsIU]
 
     @staticmethod
     def output_iu():
@@ -48,7 +48,7 @@ class Dinov2ObjectFeatures(retico_core.AbstractModule):
         "facebook/dino-vitb16",
     ]
     
-    def __init__(self, model_name = "facebook/dino-vits8", show=False, **kwargs):
+    def __init__(self, model_name = "facebook/dino-vits8", top_objects=1, show=False, **kwargs):
         super().__init__(**kwargs)
 
         if model_name not in self.MODELS:
@@ -56,6 +56,7 @@ class Dinov2ObjectFeatures(retico_core.AbstractModule):
             model_name = "facebook/dino-vits8"
 
         self.model_name = model_name
+        self.top_objects = top_objects
         self.model = None
         self.feature_extractor = None
         self.show = show
@@ -69,24 +70,24 @@ class Dinov2ObjectFeatures(retico_core.AbstractModule):
             else:
                 self.queue.append(iu)
 
-    def get_clip_subimage(self, I, img_box):
-        # expected format:
-        # Numpy array, length 4, [xmin, ymin, xmax, ymax]
+    # def get_clip_subimage(self, I, img_box):
+    #     # expected format:
+    #     # Numpy array, length 4, [xmin, ymin, xmax, ymax]
 
-        xmin = int(img_box[0])
-        xmax = int(img_box[2])
-        ymin = int(img_box[1])
-        ymax = int(img_box[3])
-        sub = I.crop([xmin,ymin,xmax,ymax])
+    #     xmin = int(img_box[0])
+    #     xmax = int(img_box[2])
+    #     ymin = int(img_box[1])
+    #     ymax = int(img_box[3])
+    #     sub = I.crop([xmin,ymin,xmax,ymax])
 
-        if self.show:
-            import cv2
-            img_to_show = np.asarray(sub)
-            cv2.imshow('image',cv2.cvtColor(img_to_show, cv2.COLOR_RGB2BGR)) 
-            cv2.waitKey(1)
-        # pim = PImage.fromarray(sub)
-        sub.load()
-        return sub
+    #     if self.show:
+    #         import cv2
+    #         img_to_show = np.asarray(sub)
+    #         cv2.imshow('image',cv2.cvtColor(img_to_show, cv2.COLOR_RGB2BGR)) 
+    #         cv2.waitKey(1)
+    #     # pim = PImage.fromarray(sub)
+    #     sub.load()
+    #     return sub
     
     def _extractor_thread(self):
         while self._extractor_thread_active:
@@ -96,13 +97,22 @@ class Dinov2ObjectFeatures(retico_core.AbstractModule):
 
             input_iu = self.queue.popleft()
             image = input_iu.image
-            detected_objects = input_iu.detected_objects
+            detected_objects = input_iu.extracted_objects
             object_features = {}
 
             sub_img_list = []
-            for i, obj in enumerate(detected_objects):
-                sub_img = self.get_clip_subimage(image, obj)
-                sub_img_list.append(sub_img)
+            for i, sub_img in enumerate(detected_objects):
+                if i>=self.top_objects: break
+                # print(sub_img)
+                sub = detected_objects[sub_img]
+                if self.show:
+                    import cv2
+                    img_to_show = np.asarray(sub)
+                    cv2.imshow('image',cv2.cvtColor(img_to_show, cv2.COLOR_RGB2BGR)) 
+                    cv2.waitKey(1)
+                # print(type(sub_img), type(detected_objects[sub_img]))
+                # sub_img = self.get_clip_subimage(image, obj)
+                sub_img_list.append(sub)
 
                 # img = self.preprocess(sub_img).unsqueeze(0).to(self.device)
                 # yhat = self.model.encode_image(img).cpu().numpy()
