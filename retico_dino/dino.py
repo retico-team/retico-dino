@@ -112,7 +112,7 @@ class Dinov2ObjectFeatures(retico_core.AbstractModule):
                 # outputs = self.model(**inputs)
                 # last_hidden_states = outputs.last_hidden_state
                 img_tensor = self.feature_extractor(Image.fromarray(sub)).unsqueeze(0)#.to(self.device)
-                feat = self.model(img_tensor).squeeze(0)
+                feat = self.model(img_tensor).squeeze(0).detach().numpy()    
 
                 print(feat.shape)
                 object_features[i] = feat
