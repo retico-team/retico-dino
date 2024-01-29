@@ -11,7 +11,9 @@ import numpy as np
 import threading
 import time
 import torch
-from transformers import ViTFeatureExtractor, ViTModel
+# from transformers import ViTFeatureExtractor, ViTModel
+import torchvision.transforms as T
+from PIL import Image
 
 import retico_core
 # TODO make is so that you don't need these 3 lines below
@@ -41,19 +43,9 @@ class Dinov2ObjectFeatures(retico_core.AbstractModule):
     def output_iu():
         return ObjectFeaturesIU
     
-    MODELS = [
-        "facebook/dino-vits8",
-        "facebook/dino-vits16",
-        "facebook/dino-vitb8",
-        "facebook/dino-vitb16",
-    ]
-    
-    def __init__(self, model_name = "facebook/dino-vits8", top_objects=1, show=False, **kwargs):
-        super().__init__(**kwargs)
 
-        if model_name not in self.MODELS:
-            print("Unknown model. Defaulting to facebook/dino-vits8")
-            model_name = "facebook/dino-vits8"
+    def __init__(self, model_name = "dinov2_vits14", top_objects=1, show=False, **kwargs):
+        super().__init__(**kwargs)
 
         self.model_name = model_name
         self.top_objects = top_objects
@@ -100,29 +92,28 @@ class Dinov2ObjectFeatures(retico_core.AbstractModule):
             detected_objects = input_iu.extracted_objects
             object_features = {}
 
-            sub_img_list = []
             for i, sub_img in enumerate(detected_objects):
                 if i>=self.top_objects: break
                 # print(sub_img)
                 sub = detected_objects[sub_img]
                 if self.show:
                     import cv2
-                    img_to_show = np.asarray(sub)
-                    cv2.imshow('image',cv2.cvtColor(img_to_show, cv2.COLOR_RGB2BGR)) 
+                    # img_to_show = np.asarray(sub)
+                    cv2.imshow('image',sub) 
                     cv2.waitKey(1)
                 # print(type(sub_img), type(detected_objects[sub_img]))
                 # sub_img = self.get_clip_subimage(image, obj)
-                sub_img_list.append(sub)
+            
 
                 # img = self.preprocess(sub_img).unsqueeze(0).to(self.device)
                 # yhat = self.model.encode_image(img).cpu().numpy()
                 # object_features[i] = yhat.tolist()
+                # inputs = self.feature_extractor(images=sub_img_list, return_tensors="pt")
+                # outputs = self.model(**inputs)
+                # last_hidden_states = outputs.last_hidden_state
+                img_tensor = self.feature_extractor(Image.fromarray(sub)).unsqueeze(0)#.to(self.device)
+                feat = self.model(img_tensor).squeeze(0)
 
-            inputs = self.feature_extractor(images=sub_img_list, return_tensors="pt")
-            outputs = self.model(**inputs)
-            last_hidden_states = outputs.last_hidden_state
-
-            for i, feat in enumerate(last_hidden_states):
                 print(feat.shape)
                 object_features[i] = feat
 
@@ -132,8 +123,14 @@ class Dinov2ObjectFeatures(retico_core.AbstractModule):
             self.append(um)
 
     def prepare_run(self):
-        self.feature_extractor = ViTFeatureExtractor.from_pretrained(self.model_name)
-        self.model = ViTModel.from_pretrained(self.model_name)
+        # self.feature_extractor = ViTFeatureExtractor.from_pretrained(self.model_name)
+        # self.model = ViTModel.from_pretrained(self.model_name)
+        self.model = torch.hub.load('facebookresearch/dinov2', self.model_name)
+        self.feature_extractor = T.Compose([
+            T.Resize((224,224)),
+            T.ToTensor(),
+            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
         self._extractor_thread_active = True
         threading.Thread(target=self._extractor_thread).start()
     
