@@ -97,10 +97,9 @@ class Dinov2ObjectFeatures(retico_core.AbstractModule):
                 # print(sub_img)
                 sub = detected_objects[sub_img]
                 if self.show:
-                    import cv2
-                    # img_to_show = np.asarray(sub)
-                    cv2.imshow('image',sub) 
-                    cv2.waitKey(1)
+                    # print(sub.getbands())
+                    # sub = sub.convert("BGR")
+                    sub.show()
                 # print(type(sub_img), type(detected_objects[sub_img]))
                 # sub_img = self.get_clip_subimage(image, obj)
             
@@ -111,10 +110,10 @@ class Dinov2ObjectFeatures(retico_core.AbstractModule):
                 # inputs = self.feature_extractor(images=sub_img_list, return_tensors="pt")
                 # outputs = self.model(**inputs)
                 # last_hidden_states = outputs.last_hidden_state
-                img_tensor = self.feature_extractor(Image.fromarray(sub)).unsqueeze(0)#.to(self.device)
+                img_tensor = self.feature_extractor(sub).unsqueeze(0)#.to(self.device)
                 feat = self.model(img_tensor).squeeze(0).detach().numpy().tolist()   
 
-                print(len(feat))
+                # print(len(feat))
                 object_features[i] = feat
 
             output_iu = self.create_iu(input_iu)
