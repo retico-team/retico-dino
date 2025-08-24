@@ -5,25 +5,16 @@ DINO Module
 This module provides extracts features from DetectedObjectsIU using DINO.
 """
 
-
 from collections import deque
 import numpy as np
 import threading
 import time
 import torch
+from transformers import AutoModel
 # from transformers import ViTFeatureExtractor, ViTModel
 import torchvision.transforms as T
 from PIL import Image
-
 import retico_core
-# TODO make is so that you don't need these 3 lines below
-# idealy retico-vision would be in the env so you could 
-# import it by just using:
-# from retico_vision.vision import ImageIU, ExtractedObjectsIU
-import sys
-# prefix = '../../'
-# sys.path.append(prefix+'retico-vision')
-
 from retico_vision.vision import ExtractedObjectsIU, ObjectFeaturesIU
 
 class Dinov2ObjectFeatures(retico_core.AbstractModule):
@@ -135,3 +126,88 @@ class Dinov2ObjectFeatures(retico_core.AbstractModule):
     
     def shutdown(self):
         self._extractor_thread_active = False
+
+
+class Dinov3ObjectFeatures(retico_core.AbstractModule):
+    @staticmethod
+    def name():
+        return "DINOv3 Object Features"
+
+    @staticmethod
+    def description():
+        return "Module for extracting visual features from images with DINOv3."
+
+    @staticmethod
+    def input_ius():
+        return [ExtractedObjectsIU]
+
+    @staticmethod
+    def output_iu():
+        return ObjectFeaturesIU
+
+    def __init__(self, model_name="facebook/dinov3-vits16-pretrain-lvd1689m", top_objects=1, show=False, **kwargs):
+        super().__init__(**kwargs)
+
+        self.model_name = model_name
+
+        # !!NORMALIZE VALUES ARE SPECIFIC TO MODEL!!
+        if self.model_name.endswith('lvd1689m'):
+            normalize = T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+        elif self.model_name.endswith('sat493m'):
+            normalize = T.Normalize(mean=(0.430, 0.411, 0.296), std=(0.213, 0.156, 0.143))
+        else:
+            raise RuntimeWarning(f"Unrecognized model name '{self.model_name}'. Unable to get normalization values.")
+
+        # must resize incoming images BEFORE converting to tensors because of images with possible empty dimensions
+        resize = (224, 224)
+        self.img_transform = T.Compose([T.Resize(resize, antialias=True), T.ToTensor(), normalize])
+        self.model = AutoModel.from_pretrained(model_name)
+
+        self.top_objects = top_objects
+        self.show = show
+        self.queue = deque(maxlen=1)
+        self._extractor_thread_active = False
+
+    def process_update(self, update_message):
+        for iu, ut in update_message:
+            if ut == retico_core.UpdateType.ADD:
+                self.queue.append(iu)
+
+    def _extractor_thread(self):
+        while self._extractor_thread_active:
+            if len(self.queue) == 0:
+                time.sleep(0.5)
+                continue
+
+            input_iu = self.queue.popleft()
+            img = input_iu.image
+            detected_objects = input_iu.extracted_objects
+            object_features = {}
+
+            for i, sub_img in enumerate(detected_objects):
+                if i>=self.top_objects: break
+
+                # pull sub-image
+                sub = detected_objects[sub_img]
+
+                # TODO why can sub-images have size dimensions == 0? (e.g. (0, 0), (60, 0), (0, 24), etc.)
+                # Displays images without a size dim equal to 0 if show=True
+                if self.show and sub.size[0] * sub.size[1] != 0:
+                    sub.show()
+
+                # feed sub-image to DINOv3 and collect features
+                img_tensor = self.img_transform(sub).unsqueeze(0)
+                output = self.model(img_tensor)
+                feats = output.pooler_output.squeeze(0).detach().numpy().tolist()
+
+                # save features for all sub-images
+                object_features[i] = feats
+
+            output_iu = self.create_iu(input_iu)
+            output_iu.set_object_features(img, object_features)
+            um = retico_core.UpdateMessage.from_iu(output_iu, retico_core.UpdateType.ADD)
+            self.append(um)
+
+    def prepare_run(self):
+        self._extractor_thread_active = True
+        threading.Thread(target=self._extractor_thread, daemon=True).start()
