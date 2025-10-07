@@ -6,11 +6,14 @@ https://github.com/facebookresearch/dinov2
 ### Installation and requirements
 It is strongly advised to ensure that PyTorch is installed with GPU support.
 - For CUDA 12.6 (NVIDIA): `pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126`
-- For ROCm 6.4 (AMD): `pip3 install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.4`
-Defer to PyTorch's [guide](https://pytorch.org/get-started/locally/)  
+- For ROCm 6.4 (AMD): `pip3 install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.4`  
+
+Defer to PyTorch's install [guide](https://pytorch.org/get-started/locally/).  
 
 Once PyTorch has been installed, run the following to install `retico-dino` and dependencies:  
-```pip install git+https://github.com/retico-team/retico-core git+https://github.com/retico-team/retico-vision git+https://github.com/retico-team/retico-dino```
+```bash
+pip install git+https://github.com/retico-team/retico-core git+https://github.com/retico-team/retico-vision git+https://github.com/retico-team/retico-dino
+```
 
 ### Example
 ```python
