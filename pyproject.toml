@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=80", "setuptools-scm[simple]>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "retico-dino"
+dynamic = ["version"]
+dependencies = [
+    "numpy",
+    "pillow",
+    "torch",
+    "torchvision",
+    "transformers",
+]
+authors = [
+    {name = "Ryan Whetten"},
+]
+description = "Implementation of Meta's DINO models in Retico."
+readme = "README.md"
+license = { file = "LICENSE" }
+keywords = ["real-time", "computer vision", "DINO"]
+
