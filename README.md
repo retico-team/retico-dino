@@ -1,65 +1,62 @@
 # retico-dino
-A ReTiCo module for DINO. See below for more information.
+A ReTiCo module for extracting visual features of detected objects with Meta's [DINOv2](https://github.com/facebookresearch/dinov2) models.
 
-https://github.com/facebookresearch/dinov2
+## Installation and Requirements
 
-### Installation and requirements
-It is strongly advised to ensure that PyTorch is installed with GPU support.
+To use the DINO module you first need to install the retico-dino package:
+* Install retico-dino:
+```pip install retico-dino```
+
+  or, for the latest development version from GitHub:
+```pip install git+https://github.com/retico-team/retico-dino.git```
+
+It is advised to install PyTorch for your hardware first, following PyTorch's [install guide](https://pytorch.org/get-started/locally/), e.g.:
 - For CUDA 12.6 (NVIDIA): `pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126`
-- For ROCm 6.4 (AMD): `pip3 install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.4`  
+- For ROCm 6.4 (AMD): `pip3 install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.4`
 
-Defer to PyTorch's install [guide](https://pytorch.org/get-started/locally/).  
+## Modules
 
-Once PyTorch has been installed, run the following to install `retico-dino` and dependencies:  
-```bash
-pip install git+https://github.com/retico-team/retico-core git+https://github.com/retico-team/retico-vision git+https://github.com/retico-team/retico-dino
-```
+### `Dinov2ObjectFeatures`
+Subscribes to `ExtractedObjectsIU` (produced by `ExtractObjectsModule` from `retico_vision`) and encodes each cropped object image with DINOv2, producing an `ObjectFeaturesIU` containing a dictionary of feature vectors, one per object.
+
+#### Arguments:
+* `model_name` (str): the DINOv2 model to load from `torch.hub`; defaults to `"dinov2_vits14"`
+* `top_objects` (int): the maximum number of objects to encode per incoming frame; defaults to `1`
+* `show` (bool): if `True`, opens each object crop in an image viewer as it's processed; defaults to `False`
 
 ### Example
+**Note:** The example uses `WebcamModule` and `ExtractObjectsModule` from `retico_vision` and `SAMModule` from [retico-sam](https://github.com/retico-team/retico-sam) (`pip install retico-sam`). `ExtractObjectsModule` lets you choose how many objects are extracted from each frame.
+
 ```python
-import sys, os
+import os
 
 os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
 
-prefix = '/path/to/prefix'
-sys.path.append(prefix+'retico-core')
-sys.path.append(prefix+'retico-vision')
-sys.path.append(prefix+'retico-sam')
-sys.path.append(prefix+'retico-dino')
-
 from retico_core import *
 from retico_core.debug import DebugModule
-from retico_vision.vision import WebcamModule 
-from retico_dino.dino import Dinov2ObjectFeatures
-from retico_vision.vision import ExtractObjectsModule
+from retico_vision.vision import WebcamModule, ExtractObjectsModule
 from retico_sam.sam import SAMModule
+from retico_dino.dino import Dinov2ObjectFeatures
 
-path_var = 'sam_vit_h_4b8939.pth'
+path_var = '<path-to-sam-checkpoint>'  # e.g. sam_vit_h_4b8939.pth
 
 webcam = WebcamModule()
-sam = SAMModule(model='h', path_to_chkpnt=path_var, use_bbox=True)  
-extractor = ExtractObjectsModule(num_obj_to_display=1)  
+sam = SAMModule(model='h', path_to_chkpnt=path_var, use_bbox=True)
+extractor = ExtractObjectsModule(num_obj_to_display=1)
 feats = Dinov2ObjectFeatures(show=False, top_objects=1)
-debug = DebugModule()  
+debug = DebugModule()
 
-webcam.subscribe(sam)  
-sam.subscribe(extractor)  
-extractor.subscribe(feats)    
+webcam.subscribe(sam)
+sam.subscribe(extractor)
+extractor.subscribe(feats)
 feats.subscribe(debug)
 
-webcam.run()  
-sam.run()  
-extractor.run()  
-feats.run()
-debug.run()  
+network.run(webcam)
 
 print("Network is running")
 input()
 
-webcam.stop()  
-sam.stop()  
-extractor.stop()   
-debug.stop()  
+network.stop(webcam)
 ```
 
 Citation

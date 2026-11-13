@@ -6,11 +6,12 @@ build-backend = "setuptools.build_meta"
 name = "retico-dino"
 dynamic = ["version"]
 dependencies = [
+    "retico-core>=2.0.0",
+    "retico-vision",
     "numpy",
     "pillow",
     "torch",
     "torchvision",
-    "transformers",
 ]
 authors = [
     {name = "Ryan Whetten"},
@@ -20,3 +21,8 @@ readme = "README.md"
 license = { file = "LICENSE" }
 keywords = ["real-time", "computer vision", "DINO"]
 
+[project.urls]
+Repository = "https://github.com/retico-team/retico-dino"
+
+[tool.setuptools_scm]
+version_file = "retico_dino/version.py"

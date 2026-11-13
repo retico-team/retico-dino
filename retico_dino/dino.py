@@ -110,8 +110,8 @@ class Dinov2ObjectFeatures(retico_core.AbstractModule):
                 # inputs = self.feature_extractor(images=sub_img_list, return_tensors="pt")
                 # outputs = self.model(**inputs)
                 # last_hidden_states = outputs.last_hidden_state
-                img_tensor = self.feature_extractor(sub).unsqueeze(0)#.to(self.device)
-                feat = self.model(img_tensor).squeeze(0).detach().numpy().tolist()   
+                img_tensor = self.feature_extractor(sub).unsqueeze(0).to(self.device)
+                feat = self.model(img_tensor).squeeze(0).detach().cpu().numpy().tolist()
 
                 # print(len(feat))
                 object_features[i] = feat
@@ -125,6 +125,7 @@ class Dinov2ObjectFeatures(retico_core.AbstractModule):
         # self.feature_extractor = ViTFeatureExtractor.from_pretrained(self.model_name)
         # self.model = ViTModel.from_pretrained(self.model_name)
         self.model = torch.hub.load('facebookresearch/dinov2', self.model_name)
+        self.model.to(self.device)
         self.feature_extractor = T.Compose([
             T.Resize((224,224)),
             T.ToTensor(),
